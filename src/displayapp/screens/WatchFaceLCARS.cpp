@@ -3,10 +3,12 @@
 #include <lvgl/lvgl.h>
 #include <cstdio>
 #include "displayapp/screens/Symbols.h"
+#include "displayapp/screens/WeatherSymbols.h"
 #include "displayapp/screens/BleIcon.h"
 #include "components/settings/Settings.h"
 #include "components/battery/BatteryController.h"
 #include "components/heartrate/HeartRateController.h"
+#include "components/ble/SimpleWeatherService.h"
 #include "components/ble/BleController.h"
 #include "components/ble/NotificationManager.h"
 #include "components/motion/MotionController.h"
@@ -64,6 +66,7 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
                                      Controllers::Settings& settingsController,
                                      Controllers::MotionController& motionController,
                                      Controllers::HeartRateController& heartRateController,
+                                     Controllers::SimpleWeatherService& weatherService,
                                      Controllers::FS& filesystem)
   : currentDateTime {{}},
     currentNanoSeconds {{}},
@@ -73,7 +76,8 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
     notificationManager {notificationManager},
     settingsController {settingsController},
     motionController {motionController},
-    heartRateController {heartRateController} {
+    heartRateController {heartRateController},
+    weatherService {weatherService} {
 
   // Fonts
   lfs_file f = {};
@@ -137,7 +141,7 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
   bg_label_stardate = label_make_with_font(bg_stardate_shapes[2], -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Stardate");
   bg_label_time = label_make_with_font(bg_stardate_shapes[2], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Time");
   bg_label_sensors = label_make_with_font(bg_sensors, -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Sensors");
-  bg_label_vitals = label_make_with_font(bg_vitals_shapes[3], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Vitals");
+  bg_label_vitals_or_weather = label_make_with_font(bg_vitals_shapes[3], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Weather");
   bg_label_movement = label_make_with_font(bg_movement, -1, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Movement");
 
   // System
@@ -184,8 +188,11 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
   sensors_container = label_container_make(lv_scr_act(), 0, 0, 130, 50, LV_ALIGN_IN_BOTTOM_RIGHT);
   stepValue = label_make_with_font(sensors_container, -5, 0, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
   stepIcon = label_make(stepValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::shoe);
-  heartbeatValue = label_make_with_font(sensors_container, -5, -25, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
-  heartbeatIcon = label_make(heartbeatValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");
+  heartbeatOrWeatherValue = label_make_with_font(sensors_container, -5, -25, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
+  heartbeatIcon = label_make(heartbeatOrWeatherValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");
+  lv_obj_set_hidden(heartbeatIcon, true);
+  weatherIcon = label_make(heartbeatOrWeatherValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");  
+  lv_obj_set_style_local_text_font(weatherIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &fontawesome_weathericons);
 
   // Tasks
   taskRefresh = lv_task_create(RefreshTaskCallback, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_MID, this);
@@ -225,6 +232,7 @@ void WatchFaceLCARS::Refresh() {
     UpdateBatteryPercent();
     UpdateBLE();
     UpdateHeartRate();
+    UpdateWeather();
     currentDateTime = std::chrono::time_point_cast<std::chrono::minutes>(currentNanoSeconds.Get());
     if (currentDateTime.IsUpdated()) {
       UpdateTime();
@@ -237,26 +245,77 @@ void WatchFaceLCARS::Refresh() {
   }
 }
 
+bool WatchFaceLCARS::ShowHeartRate() {  
+  return heartRateController.State() != Controllers::HeartRateController::States::Stopped;
+}
+
 void WatchFaceLCARS::UpdateHeartRate() {
+  if (!ShowHeartRate()) return;
   heartbeat = heartRateController.HeartRate();
   heartbeatRunning = heartRateController.State() != Controllers::HeartRateController::States::Stopped;
   if (heartbeat.IsUpdated() || heartbeatRunning.IsUpdated()) {
     if (heartbeat.Get() > 120) {
-      set_label_color(heartbeatValue, redColor);
+      set_label_color(heartbeatOrWeatherValue, redColor);
       set_label_color(heartbeatIcon, redColor);
     } else {
-      set_label_color(heartbeatValue, orangeColor);
+      set_label_color(heartbeatOrWeatherValue, orangeColor);
       set_label_color(heartbeatIcon, orangeColor);
     }
     if (heartbeatRunning.Get()) {
-      lv_label_set_text_fmt(heartbeatValue, "%d", heartbeat.Get());
+      lv_label_set_text_fmt(heartbeatOrWeatherValue, "%d", heartbeat.Get());
       lv_label_set_text_static(heartbeatIcon, Symbols::heartBeat);
+      if(!showed_vitals_last) {
+        showed_vitals_last = true;
+        lv_label_set_text(bg_label_vitals_or_weather, "Vitals");
+        lv_obj_set_hidden(heartbeatIcon, false);
+        lv_obj_set_hidden(weatherIcon, true);
+        lv_obj_realign(bg_label_vitals_or_weather);
+      }
     } else {
-      lv_label_set_text_static(heartbeatValue, "");
+      lv_label_set_text_static(heartbeatOrWeatherValue, "");
       lv_label_set_text_static(heartbeatIcon, "");
     }
-    lv_obj_realign(heartbeatValue);
+    lv_obj_realign(heartbeatOrWeatherValue);
     lv_obj_realign(heartbeatIcon);
+  }
+}
+
+bool WatchFaceLCARS::ShowWeather() {
+  return !ShowHeartRate();
+}
+
+void WatchFaceLCARS::UpdateWeather() {
+  if (!ShowWeather()) return;
+
+  currentWeather = weatherService.Current();
+
+  if (currentWeather.IsUpdated() || showed_vitals_last) {
+    set_label_color(heartbeatOrWeatherValue, orangeColor);
+    set_label_color(weatherIcon, orangeColor);
+
+    auto optCurrentWeather = currentWeather.Get();
+
+    if (optCurrentWeather) {
+      int16_t temp = optCurrentWeather->temperature.Celsius();
+      if (settingsController.GetWeatherFormat() == Controllers::Settings::WeatherFormat::Imperial) {
+        temp = optCurrentWeather->temperature.Fahrenheit();
+      }
+      lv_label_set_text_fmt(heartbeatOrWeatherValue, "%d°", temp);
+      lv_label_set_text(weatherIcon, Symbols::GetSymbol(optCurrentWeather->iconId));
+
+      if (showed_vitals_last) {
+        showed_vitals_last = false;
+        lv_label_set_text(bg_label_vitals_or_weather, "Weather");
+        lv_obj_set_hidden(heartbeatIcon, true);
+        lv_obj_set_hidden(weatherIcon, false);
+        lv_obj_realign(bg_label_vitals_or_weather);
+      }
+    } else {
+      lv_label_set_text_static(heartbeatOrWeatherValue, "");
+      lv_label_set_text_static(weatherIcon, "");
+    }
+    lv_obj_realign(heartbeatOrWeatherValue);
+    lv_obj_realign(weatherIcon);
   }
 }
 

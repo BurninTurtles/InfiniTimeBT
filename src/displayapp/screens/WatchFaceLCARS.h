@@ -7,6 +7,7 @@
 #include <displayapp/Controllers.h>
 #include "displayapp/screens/Screen.h"
 #include "components/datetime/DateTimeController.h"
+#include "components/ble/SimpleWeatherService.h"
 #include "utility/DirtyValue.h"
 #include "displayapp/apps/Apps.h"
 
@@ -31,6 +32,7 @@ namespace Pinetime {
                           Controllers::Settings& settingsController,
                           Controllers::MotionController& motionController,
                           Controllers::HeartRateController& heartRateController,
+                          Controllers::SimpleWeatherService& weatherService,
                           Controllers::FS& fs);
 
         ~WatchFaceLCARS() override;
@@ -44,6 +46,8 @@ namespace Pinetime {
         uint8_t chargingBatteryPercent = 101; // not a mistake ;)
 
         uint8_t last_second = 60;
+
+        bool showed_vitals_last = false;
 
         const char* weekNumberFormat = "%V";
 
@@ -70,6 +74,7 @@ namespace Pinetime {
         Utility::DirtyValue<uint32_t> stepCount {};
         Utility::DirtyValue<uint8_t> heartbeat {};
         Utility::DirtyValue<bool> heartbeatRunning {};
+        Utility::DirtyValue<std::optional<Pinetime::Controllers::SimpleWeatherService::CurrentWeather>> currentWeather {};
         Utility::DirtyValue<bool> notificationState {};
         using days = std::chrono::duration<int32_t, std::ratio<86400>>; // TODO: days is standard in c++20
         Utility::DirtyValue<std::chrono::time_point<std::chrono::system_clock, days>> currentDate;
@@ -84,7 +89,7 @@ namespace Pinetime {
         lv_obj_t* bg_label_stardate;
         lv_obj_t* bg_label_time;
         lv_obj_t* bg_label_sensors;
-        lv_obj_t* bg_label_vitals;
+        lv_obj_t* bg_label_vitals_or_weather;
         lv_obj_t* bg_label_movement;
 
         lv_obj_t* timeContainer;
@@ -104,8 +109,9 @@ namespace Pinetime {
         lv_obj_t* bleIcon;
         lv_obj_t* stepIcon;
         lv_obj_t* stepValue;
-        lv_obj_t* heartbeatValue;
+        lv_obj_t* heartbeatOrWeatherValue;
         lv_obj_t* heartbeatIcon;
+        lv_obj_t* weatherIcon;
         lv_obj_t* notificationIcon;
 
         Controllers::DateTime& dateTimeController;
@@ -115,6 +121,7 @@ namespace Pinetime {
         Controllers::Settings& settingsController;
         Controllers::MotionController& motionController;
         Controllers::HeartRateController& heartRateController;
+        Controllers::SimpleWeatherService& weatherService;  
 
         void SetBatteryLevel(uint8_t batteryPercent, const lv_color_t& color);
         void ResetSecondsDigits();
@@ -125,7 +132,10 @@ namespace Pinetime {
         void UpdateWK();
         void UpdateSeconds();
         void UpdateTime();
+        bool ShowHeartRate();
         void UpdateHeartRate();
+        bool ShowWeather();
+        void UpdateWeather();
 
         lv_task_t* taskRefresh;
         lv_font_t* font_antonio_78 = nullptr;
@@ -149,6 +159,7 @@ namespace Pinetime {
                                               controllers.settingsController,
                                               controllers.motionController,
                                               controllers.heartRateController,
+                                              *controllers.weatherController,
                                               controllers.filesystem);
       };
 

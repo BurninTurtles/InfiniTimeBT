@@ -87,7 +87,7 @@
       "sources": [
          {
             "file": "fonts/antonio.ttf",
-            "symbols": "0123456789:APMONTUEWDHFRISATJBYLGKVZ% "
+            "symbols": "0123456789:APMONTUEWDHFRISATJBYLGKVZ%°- "
          }
       ],
       "bpp": 1,
@@ -111,7 +111,7 @@
       "sources": [
          {
             "file": "fonts/antonio.ttf",
-            "symbols": "MSTVadeilmnorstvy"
+            "symbols": "MSTVWadehilmnorstvy"
          }
       ],
       "bpp": 1,
