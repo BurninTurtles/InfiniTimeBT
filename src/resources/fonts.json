@@ -106,5 +106,17 @@
       "size": 13,
       "format": "bin",
       "target_path": "/fonts/"
+   },
+   "antonio_12" : {
+      "sources": [
+         {
+            "file": "fonts/antonio.ttf",
+            "symbols": "MSTVadeilmnorstvy"
+         }
+      ],
+      "bpp": 1,
+      "size": 12,
+      "format": "bin",
+      "target_path": "/fonts/"
    }
 }

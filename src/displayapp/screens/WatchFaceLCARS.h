@@ -51,6 +51,16 @@ namespace Pinetime {
         static constexpr lv_color_t orangeColor = LV_COLOR_MAKE(0xFF, 0x99, 0x33);
         static constexpr lv_color_t redColor = LV_COLOR_MAKE(0xDD, 0x44, 0x44);
 
+        static constexpr lv_color_t bgColor = LV_COLOR_BLACK;
+        static constexpr lv_color_t bgBlackColor = LV_COLOR_BLACK;
+        static constexpr lv_color_t bgRedColor = LV_COLOR_MAKE(0xe6, 0x44, 0x4a);
+        static constexpr lv_color_t bgBlueColor = LV_COLOR_MAKE(0x31, 0x69, 0xd5);
+        static constexpr lv_color_t bgLightBlueColor = LV_COLOR_MAKE(0x8b, 0xce, 0xff);
+        static constexpr lv_color_t bgVioletColor = LV_COLOR_MAKE(0x9c, 0x44, 0xff);
+        static constexpr lv_color_t bgLightVioletColor = LV_COLOR_MAKE(0xd5, 0x99, 0xd5);
+        static constexpr lv_color_t bgOrangeColor = LV_COLOR_MAKE(0xff, 0x99, 0x31);
+        static constexpr lv_color_t bgYellowColor = LV_COLOR_MAKE(0xff, 0xce, 0x9c);
+
         Utility::DirtyValue<uint8_t> batteryPercentRemaining {};
         Utility::DirtyValue<bool> isCharging {};
         Utility::DirtyValue<bool> bleState {};
@@ -63,8 +73,19 @@ namespace Pinetime {
         Utility::DirtyValue<bool> notificationState {};
         using days = std::chrono::duration<int32_t, std::ratio<86400>>; // TODO: days is standard in c++20
         Utility::DirtyValue<std::chrono::time_point<std::chrono::system_clock, days>> currentDate;
+        
+        lv_obj_t* bg_system_shapes[10];
+        lv_obj_t* bg_stardate_shapes[9];
+        lv_obj_t* bg_sensors;
+        lv_obj_t* bg_vitals_shapes[6];
+        lv_obj_t* bg_movement;
 
-        lv_obj_t* background;
+        lv_obj_t* bg_label_system;
+        lv_obj_t* bg_label_stardate;
+        lv_obj_t* bg_label_time;
+        lv_obj_t* bg_label_sensors;
+        lv_obj_t* bg_label_vitals;
+        lv_obj_t* bg_label_movement;
 
         lv_obj_t* timeContainer;
         lv_obj_t* labelTime;
@@ -111,6 +132,7 @@ namespace Pinetime {
         lv_font_t* font_antonio_33 = nullptr;
         lv_font_t* font_antonio_21 = nullptr;
         lv_font_t* font_antonio_13 = nullptr;
+        lv_font_t* font_antonio_12 = nullptr;
       };
     }
 

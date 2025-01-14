@@ -37,6 +37,24 @@ namespace {
     lv_obj_align(container, parent, align, position_x, position_y);
     return container;
   }
+  lv_obj_t* _base(int16_t x, int16_t y, uint8_t w, uint8_t h, lv_color_t color) {
+    lv_obj_t* base = lv_obj_create(lv_scr_act(), nullptr);
+    lv_obj_set_style_local_bg_color(base, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
+    lv_obj_set_size(base, w, h);
+    lv_obj_set_pos(base, x, y);
+    return base;
+  }
+  lv_obj_t* rect(int16_t x, int16_t y, uint8_t w, uint8_t h, lv_color_t color) {
+    lv_obj_t* rect = _base(x, y, w, h, color);
+    lv_obj_set_style_local_radius(rect, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    return rect;
+  }
+
+  lv_obj_t* circ(int16_t x, int16_t y, uint8_t d, lv_color_t color) {
+    lv_obj_t* circ = _base(x, y, d, d, color);
+    lv_obj_set_style_local_radius(circ, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_RADIUS_CIRCLE);
+    return circ;
+  }
 }
 
 WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
@@ -76,12 +94,52 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
     filesystem.FileClose(&f);
     font_antonio_13 = lv_font_load("F:/fonts/antonio_13.bin");
   }
+  if (filesystem.FileOpen(&f, "/fonts/antonio_12.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_12 = lv_font_load("F:/fonts/antonio_12.bin");
+  }
   
   // Background
-  background = lv_img_create(lv_scr_act(), nullptr);
-  lv_img_set_src(background, "F:/images/LCARS.bin");
-  lv_obj_set_pos(background, 0, 0);
-  
+  bg_system_shapes[0] = circ(0, -8, 44, bgLightBlueColor); // big circle
+  bg_system_shapes[1] = rect(0, 0, 50, 4, bgVioletColor); // top bar
+  bg_system_shapes[2] = rect(0, 4, 50, 3, bgColor); // black spacing
+  bg_system_shapes[3] = rect(0, 7, 50, 7, bgLightBlueColor); // top part of light blue system bg
+  bg_system_shapes[4] = rect(22, 14, 44, 22, bgLightBlueColor); // bottom parth of light blue system bg with inner rounding bg
+  bg_system_shapes[5] = circ(50, -2, 32, bgColor); // inner circle
+  bg_system_shapes[6] = rect(66, 30, 87, 6, bgLightBlueColor); // long bar
+  bg_system_shapes[7] = rect(155, 30, 8, 6, bgOrangeColor); // short bar 1
+  bg_system_shapes[8] = rect(165, 30, 64, 6, bgLightVioletColor); // middle length bar
+  bg_system_shapes[9] = rect(231, 30, 9, 6, bgRedColor); // short bar 2
+    
+  bg_stardate_shapes[0] = circ(0, 38, 44, bgRedColor); // big circle
+  bg_stardate_shapes[1] = rect(22, 38, 44, 22, bgRedColor); // stardate bg top part
+  bg_stardate_shapes[2] = rect(0, 60, 50, 120, bgRedColor); // stardate bg bottom part + time
+  bg_stardate_shapes[3] = circ(50, 44, 32, bgColor); // inner circle
+  bg_stardate_shapes[4] = rect(66, 38, 87, 6, bgRedColor); // long bar
+  bg_stardate_shapes[5] = rect(155, 38, 8, 6, bgYellowColor); // short bar 1
+  bg_stardate_shapes[6] = rect(165, 38, 64, 6, bgLightVioletColor); // middle length bar
+  bg_stardate_shapes[7] = rect(231, 38, 9, 6, bgYellowColor); // short bar 2
+  bg_stardate_shapes[8] = rect(0, 74, 50, 3, bgColor); // cleanup big circle / spacer between stardate and time
+
+  bg_sensors = rect(0, 183, 50, 57, bgVioletColor);
+
+  bg_vitals_shapes[0] = circ(53, 184, 44, bgBlueColor); // big circle
+  bg_vitals_shapes[1] = rect(53, 216, 44, 3, bgColor); // cleanup big circle
+  bg_vitals_shapes[2] = rect(75, 184, 44, 22, bgBlueColor); // vitals bg top
+  bg_vitals_shapes[3] = rect(53, 206, 50, 10, bgBlueColor); // vitals bg bottom
+  bg_vitals_shapes[4] = circ(103, 190, 32, bgColor); // inner circle
+  bg_vitals_shapes[5] = rect(119, 184, 115, 6, bgBlueColor); // long bar
+
+  bg_movement = rect(53, 219, 50, 21, bgLightBlueColor);
+
+  // Background labels  
+  bg_label_system = label_make_with_font(bg_system_shapes[3], -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "System");
+  bg_label_stardate = label_make_with_font(bg_stardate_shapes[2], -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Stardate");
+  bg_label_time = label_make_with_font(bg_stardate_shapes[2], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Time");
+  bg_label_sensors = label_make_with_font(bg_sensors, -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Sensors");
+  bg_label_vitals = label_make_with_font(bg_vitals_shapes[3], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Vitals");
+  bg_label_movement = label_make_with_font(bg_movement, -1, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Movement");
+
   // System
   system_container = label_container_make(lv_scr_act(), 0, 5, 170, 20, LV_ALIGN_IN_TOP_RIGHT);
   labelBattery = label_make_with_font(system_container, 0, 0, grayColor, font_antonio_21, LV_ALIGN_IN_TOP_RIGHT, "0 %");
@@ -150,6 +208,9 @@ WatchFaceLCARS::~WatchFaceLCARS() {
   }
   if (font_antonio_13 != nullptr) {
     lv_font_free(font_antonio_13);
+  }
+  if (font_antonio_12 != nullptr) {
+    lv_font_free(font_antonio_12);
   }
   
   // Objects
@@ -334,6 +395,10 @@ bool WatchFaceLCARS::IsAvailable(Pinetime::Controllers::FS& filesystem) {
   }
   filesystem.FileClose(&file);
   if (filesystem.FileOpen(&file, "/fonts/antonio_13.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  if (filesystem.FileOpen(&file, "/fonts/antonio_12.bin", LFS_O_RDONLY) < 0) {
     return false;
   }
   filesystem.FileClose(&file);
