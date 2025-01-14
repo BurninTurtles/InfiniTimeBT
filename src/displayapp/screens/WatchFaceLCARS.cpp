@@ -14,29 +14,23 @@
 using namespace Pinetime::Applications::Screens;
 
 namespace {
-  void set_label_text_from_uint(lv_obj_t* label, uint8_t number) {
-    std::string number_as_string = std::to_string(number);
-    char* number_as_char = new char[number_as_string.length() +1];
-    std::strcpy(number_as_char, number_as_string.c_str());
-    lv_label_set_text_static(label, number_as_char);
-  }
   void set_label_color(lv_obj_t* label, lv_color_t color) {
     lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
   }
-  lv_obj_t* label_make(lv_obj_t* container, uint8_t position_x, uint8_t position_y, lv_color_t color, uint8_t align, const char* text) {
+  lv_obj_t* label_make(lv_obj_t* container, int16_t position_x, int16_t position_y, lv_color_t color, uint8_t align, const char* text) {
     lv_obj_t* label = lv_label_create(lv_scr_act(), nullptr);
     lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
     lv_label_set_text_static(label, text);
     lv_obj_align(label, container, align, position_x, position_y);
     return label;
   }
-  lv_obj_t* label_make_with_font(lv_obj_t* container, uint8_t position_x, uint8_t position_y, lv_color_t color, lv_font_t* font, uint8_t align, const char* text) {
+  lv_obj_t* label_make_with_font(lv_obj_t* container, int16_t position_x, int16_t position_y, lv_color_t color, lv_font_t* font, uint8_t align, const char* text) {
     lv_obj_t* label = label_make(container, position_x, position_y, color, align, text);
     lv_obj_set_style_local_text_font(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font);
     lv_obj_realign(label);
     return label;
   }
-  lv_obj_t* label_container_make(lv_obj_t* parent, uint8_t position_x, uint8_t position_y, uint8_t size_x, uint8_t size_y, uint8_t align) {
+  lv_obj_t* label_container_make(lv_obj_t* parent, int16_t position_x, int16_t position_y, uint8_t size_x, uint8_t size_y, uint8_t align) {
     lv_obj_t* container = lv_obj_create(lv_scr_act(), nullptr);
     lv_obj_set_style_local_bg_opa(container, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
     lv_obj_set_size(container, size_x, size_y);
@@ -90,10 +84,8 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
   
   // System
   system_container = label_container_make(lv_scr_act(), 0, 5, 170, 20, LV_ALIGN_IN_TOP_RIGHT);
-  lv_obj_align(system_container, lv_scr_act(), LV_ALIGN_IN_TOP_RIGHT, 0, 5); // TODO: Find out why this align is necessary
   labelBattery = label_make_with_font(system_container, 0, 0, grayColor, font_antonio_21, LV_ALIGN_IN_TOP_RIGHT, "0 %");
   bleIcon = label_make(labelBattery, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::bluetooth);
-  lv_obj_align(bleIcon, labelBattery, LV_ALIGN_OUT_LEFT_MID, -5, 0); // TODO: Find out why this align is necessary
 
   // Date
   dateContainer = label_container_make(lv_scr_act(), 65, 50, 175, 20, LV_ALIGN_IN_TOP_LEFT);
@@ -102,16 +94,26 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
 
   // Seconds Labels  
   label_seconds_container = label_container_make(lv_scr_act(), 65, 150, 90, 15, LV_ALIGN_IN_TOP_LEFT);
+
   label_tens_container = label_container_make(label_seconds_container, 0, 0, 90, 15, LV_ALIGN_IN_TOP_LEFT);
-  for (int i = 0; i < 6; ++i) {
-    label_tens[i] = label_make_with_font(label_tens_container, 10 * i, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "");
-    set_label_text_from_uint(label_tens[i], i);
-  }
+  label_tens[0] = label_make_with_font(label_tens_container, 0, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "0");
+  label_tens[1] = label_make_with_font(label_tens_container, 10, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "1");
+  label_tens[2] = label_make_with_font(label_tens_container, 20, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "2");
+  label_tens[3] = label_make_with_font(label_tens_container, 30, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "3");
+  label_tens[4] = label_make_with_font(label_tens_container, 40, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "4");
+  label_tens[5] = label_make_with_font(label_tens_container, 50, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "5");
+
   label_ones_container = label_container_make(label_seconds_container, 0, 15, 90, 15, LV_ALIGN_IN_TOP_LEFT);
-  for (int i = 0; i < 10; ++i) {
-    label_ones[i] = label_make_with_font(label_ones_container, 10 * i, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "");
-    set_label_text_from_uint(label_ones[i], i);
-  }
+  label_ones[0] = label_make_with_font(label_ones_container, 0, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "0");
+  label_ones[1] = label_make_with_font(label_ones_container, 10, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "1");
+  label_ones[2] = label_make_with_font(label_ones_container, 20, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "2");
+  label_ones[3] = label_make_with_font(label_ones_container, 30, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "3");
+  label_ones[4] = label_make_with_font(label_ones_container, 40, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "4");
+  label_ones[5] = label_make_with_font(label_ones_container, 50, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "5");
+  label_ones[6] = label_make_with_font(label_ones_container, 60, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "6");
+  label_ones[7] = label_make_with_font(label_ones_container, 70, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "7");
+  label_ones[8] = label_make_with_font(label_ones_container, 80, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "8");
+  label_ones[9] = label_make_with_font(label_ones_container, 90, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "9");
 
   // Time
   timeContainer = label_container_make(lv_scr_act(), 65, 76, 170, 60, LV_ALIGN_IN_TOP_LEFT);
@@ -119,19 +121,13 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
 
   // WK
   label_week = label_make_with_font(lv_scr_act(), -5, 150, orangeColor, font_antonio_33, LV_ALIGN_IN_TOP_RIGHT, "WK00");
-  lv_obj_align(label_week, lv_scr_act(), LV_ALIGN_IN_TOP_RIGHT, -5, 150); // TODO: Find out why this align is necessary
 
   // Sensors
   sensors_container = label_container_make(lv_scr_act(), 0, 0, 130, 50, LV_ALIGN_IN_BOTTOM_RIGHT);
-  lv_obj_align(sensors_container, lv_scr_act(), LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0); // TODO: Find out why this align is necessary
   stepValue = label_make_with_font(sensors_container, -5, 0, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
-  lv_obj_align(stepValue, sensors_container, LV_ALIGN_IN_BOTTOM_RIGHT, -5, 0); // TODO: Find out why this align is necessary
   stepIcon = label_make(stepValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::shoe);
-  lv_obj_align(stepIcon, stepValue, LV_ALIGN_OUT_LEFT_MID, -5, 0); // TODO: Find out why this align is necessary
   heartbeatValue = label_make_with_font(sensors_container, -5, -25, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
-  lv_obj_align(heartbeatValue, sensors_container, LV_ALIGN_IN_BOTTOM_RIGHT, -5, -25); // TODO: Find out why this align is necessary
-  heartbeatIcon = label_make(stepValue, -25, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");
-  lv_obj_align(heartbeatIcon, heartbeatValue, LV_ALIGN_IN_BOTTOM_LEFT, -25, 0); // TODO: Find out why this align is necessary
+  heartbeatIcon = label_make(heartbeatValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");
 
   // Tasks
   taskRefresh = lv_task_create(RefreshTaskCallback, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_MID, this);
@@ -218,9 +214,9 @@ void WatchFaceLCARS::UpdateTime() {
       ampmChar[0] = 'P';
     }
     lv_label_set_text(labelTimeAmPm, ampmChar);
-    weekNumberFormat = "%V";
-  } else {
     weekNumberFormat = "%U";
+  } else {
+    weekNumberFormat = "%V";
   }
   lv_label_set_text_fmt(labelTime, "%2d:%02d", hour, minute);
 
