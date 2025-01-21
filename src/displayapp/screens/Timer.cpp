@@ -61,7 +61,7 @@ Timer::Timer(Controllers::Timer& timerController, Controllers::MotorController& 
   lv_obj_set_size(btnPlayPause, LV_HOR_RES, 50);
 
   txtPlayPause = lv_label_create(btnPlayPause, nullptr);
-  //lv_obj_align(txtPlayPause, btnPlayPause, LV_ALIGN_CENTER, 0, 0);
+  // lv_obj_align(txtPlayPause, btnPlayPause, LV_ALIGN_CENTER, 0, 0);
 
   if (motorController.IsRinging()) {
     SetTimerRinging();
