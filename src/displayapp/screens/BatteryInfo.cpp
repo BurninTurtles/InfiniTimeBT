@@ -71,7 +71,7 @@ void BatteryInfo::Refresh() {
   }
 
   lv_label_set_text_fmt(percent, "%02i%%", batteryPercent);
-  lv_obj_align(percent, chargingArc, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_align(percent, charging_arc, LV_ALIGN_CENTER, 0, 0);
 
   lv_obj_align(status, voltage, LV_ALIGN_IN_BOTTOM_MID, 0, -27);
   lv_obj_align(status, voltage, LV_ALIGN_IN_BOTTOM_MID, 0, -27);
