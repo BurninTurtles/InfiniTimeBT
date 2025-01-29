@@ -148,6 +148,8 @@ WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
   system_container = label_container_make(lv_scr_act(), 0, 5, 170, 20, LV_ALIGN_IN_TOP_RIGHT);
   labelBattery = label_make_with_font(system_container, 0, 0, grayColor, font_antonio_21, LV_ALIGN_IN_TOP_RIGHT, "0 %");
   bleIcon = label_make(labelBattery, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::bluetooth);
+  notificationIcon  = label_make(system_container, 0, 0, orangeColor, LV_ALIGN_IN_TOP_LEFT, Symbols::message);
+  lv_obj_set_hidden(notificationIcon, true);
 
   // Date
   dateContainer = label_container_make(lv_scr_act(), 65, 50, 175, 20, LV_ALIGN_IN_TOP_LEFT);
@@ -231,6 +233,7 @@ void WatchFaceLCARS::Refresh() {
     UpdateStepCount();
     UpdateBatteryPercent();
     UpdateBLE();
+    UpdateNotification();
     UpdateHeartRate();
     UpdateWeather();
     currentDateTime = std::chrono::time_point_cast<std::chrono::minutes>(currentNanoSeconds.Get());
@@ -240,6 +243,20 @@ void WatchFaceLCARS::Refresh() {
       if (currentDate.IsUpdated()) {
         UpdateStardate();
         UpdateWK();
+      }
+    }
+  }
+}
+
+void WatchFaceLCARS::UpdateNotification() {
+  notificationCount = notificationManager.NbNotifications();
+  if(notificationCount.IsUpdated()) {
+    lv_obj_set_hidden(notificationIcon, notificationManager.IsEmpty());
+    if (!notificationManager.IsEmpty()) {
+      if(notificationManager.AreNewNotificationsAvailable()) {
+        lv_label_set_text_fmt(notificationIcon, "%s%s %d", Symbols::info, Symbols::message, notificationCount.Get());
+      } else {
+        lv_label_set_text_fmt(notificationIcon, "%s %d", Symbols::message, notificationCount.Get());
       }
     }
   }

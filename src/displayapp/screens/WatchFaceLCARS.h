@@ -78,6 +78,7 @@ namespace Pinetime {
         Utility::DirtyValue<bool> notificationState {};
         using days = std::chrono::duration<int32_t, std::ratio<86400>>; // TODO: days is standard in c++20
         Utility::DirtyValue<std::chrono::time_point<std::chrono::system_clock, days>> currentDate;
+        Utility::DirtyValue<size_t> notificationCount {};
         
         lv_obj_t* bg_system_shapes[10];
         lv_obj_t* bg_stardate_shapes[9];
@@ -126,6 +127,7 @@ namespace Pinetime {
         void SetBatteryLevel(uint8_t batteryPercent, const lv_color_t& color);
         void ResetSecondsDigits();
         void UpdateStepCount();
+        void UpdateNotification();
         void UpdateBLE();
         void UpdateBatteryPercent();
         void UpdateStardate();
