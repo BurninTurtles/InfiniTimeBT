@@ -50,6 +50,7 @@ namespace Pinetime {
         Utility::DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::days>> currentDate;
         Utility::DirtyValue<std::optional<Controllers::SimpleWeatherService::CurrentWeather>> currentWeather {};
 
+        lv_obj_t* container;
         lv_obj_t* notificationIcon;
         lv_obj_t* label_prompt_1;
         lv_obj_t* label_time;
