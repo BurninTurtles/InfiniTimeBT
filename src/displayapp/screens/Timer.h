@@ -17,7 +17,7 @@ namespace Pinetime::Applications {
   namespace Screens {
     class Timer : public Screen {
     public:
-      Timer(Controllers::Timer& timerController, Controllers::MotorController& motorController);
+      Timer(Controllers::Timer& timerController, Controllers::MotorController& motorController, System::SystemTask& systemTask);
       ~Timer() override;
       void Refresh() override;
       void Reset();
@@ -34,6 +34,8 @@ namespace Pinetime::Applications {
       void DisplayTime();
       Pinetime::Controllers::Timer& timer;
       Pinetime::Controllers::MotorController& motorController;
+
+      Pinetime::System::WakeLock wakeLock;
 
       lv_obj_t* btnPlayPause;
       lv_obj_t* txtPlayPause;
@@ -62,7 +64,7 @@ namespace Pinetime::Applications {
     static constexpr const char* icon = Screens::Symbols::hourGlass;
 
     static Screens::Screen* Create(AppControllers& controllers) {
-      return new Screens::Timer(controllers.timer, controllers.motorController);
+      return new Screens::Timer(controllers.timer, controllers.motorController, *controllers.systemTask);
     };
   };
 }
