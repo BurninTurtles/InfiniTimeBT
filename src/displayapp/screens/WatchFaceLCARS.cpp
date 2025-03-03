@@ -1,0 +1,482 @@
+#include "displayapp/screens/WatchFaceLCARS.h"
+
+#include <lvgl/lvgl.h>
+#include <cstdio>
+#include "displayapp/screens/Symbols.h"
+#include "displayapp/screens/WeatherSymbols.h"
+#include "displayapp/screens/BleIcon.h"
+#include "components/settings/Settings.h"
+#include "components/battery/BatteryController.h"
+#include "components/heartrate/HeartRateController.h"
+#include "components/ble/SimpleWeatherService.h"
+#include "components/ble/BleController.h"
+#include "components/ble/NotificationManager.h"
+#include "components/motion/MotionController.h"
+
+using namespace Pinetime::Applications::Screens;
+
+namespace {
+  void set_label_color(lv_obj_t* label, lv_color_t color) {
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
+  }
+  lv_obj_t* label_make(lv_obj_t* container, int16_t position_x, int16_t position_y, lv_color_t color, uint8_t align, const char* text) {
+    lv_obj_t* label = lv_label_create(lv_scr_act(), nullptr);
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
+    lv_label_set_text_static(label, text);
+    lv_obj_align(label, container, align, position_x, position_y);
+    return label;
+  }
+  lv_obj_t* label_make_with_font(lv_obj_t* container, int16_t position_x, int16_t position_y, lv_color_t color, lv_font_t* font, uint8_t align, const char* text) {
+    lv_obj_t* label = label_make(container, position_x, position_y, color, align, text);
+    lv_obj_set_style_local_text_font(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font);
+    lv_obj_realign(label);
+    return label;
+  }
+  lv_obj_t* label_container_make(lv_obj_t* parent, int16_t position_x, int16_t position_y, uint8_t size_x, uint8_t size_y, uint8_t align) {
+    lv_obj_t* container = lv_obj_create(lv_scr_act(), nullptr);
+    lv_obj_set_style_local_bg_opa(container, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_obj_set_size(container, size_x, size_y);
+    lv_obj_align(container, parent, align, position_x, position_y);
+    return container;
+  }
+  lv_obj_t* _base(int16_t x, int16_t y, uint8_t w, uint8_t h, lv_color_t color) {
+    lv_obj_t* base = lv_obj_create(lv_scr_act(), nullptr);
+    lv_obj_set_style_local_bg_color(base, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, color);
+    lv_obj_set_size(base, w, h);
+    lv_obj_set_pos(base, x, y);
+    return base;
+  }
+  lv_obj_t* rect(int16_t x, int16_t y, uint8_t w, uint8_t h, lv_color_t color) {
+    lv_obj_t* rect = _base(x, y, w, h, color);
+    lv_obj_set_style_local_radius(rect, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 0);
+    return rect;
+  }
+
+  lv_obj_t* circ(int16_t x, int16_t y, uint8_t d, lv_color_t color) {
+    lv_obj_t* circ = _base(x, y, d, d, color);
+    lv_obj_set_style_local_radius(circ, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_RADIUS_CIRCLE);
+    return circ;
+  }
+}
+
+WatchFaceLCARS::WatchFaceLCARS(Controllers::DateTime& dateTimeController,
+                                     const Controllers::Battery& batteryController,
+                                     const Controllers::Ble& bleController,
+                                     Controllers::NotificationManager& notificationManager,
+                                     Controllers::Settings& settingsController,
+                                     Controllers::MotionController& motionController,
+                                     Controllers::HeartRateController& heartRateController,
+                                     Controllers::SimpleWeatherService& weatherService,
+                                     Controllers::FS& filesystem)
+  : currentDateTime {{}},
+    currentNanoSeconds {{}},
+    dateTimeController {dateTimeController},
+    batteryController {batteryController},
+    bleController {bleController},
+    notificationManager {notificationManager},
+    settingsController {settingsController},
+    motionController {motionController},
+    heartRateController {heartRateController},
+    weatherService {weatherService} {
+
+  // Fonts
+  lfs_file f = {};
+  
+  if (filesystem.FileOpen(&f, "/fonts/antonio_78.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_78 = lv_font_load("F:/fonts/antonio_78.bin");
+  }
+  if (filesystem.FileOpen(&f, "/fonts/antonio_33.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_33 = lv_font_load("F:/fonts/antonio_33.bin");
+  }
+  if (filesystem.FileOpen(&f, "/fonts/antonio_21.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_21 = lv_font_load("F:/fonts/antonio_21.bin");
+  }
+  if (filesystem.FileOpen(&f, "/fonts/antonio_13.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_13 = lv_font_load("F:/fonts/antonio_13.bin");
+  }
+  if (filesystem.FileOpen(&f, "/fonts/antonio_12.bin", LFS_O_RDONLY) >= 0) {
+    filesystem.FileClose(&f);
+    font_antonio_12 = lv_font_load("F:/fonts/antonio_12.bin");
+  }
+  
+  // Background
+  bg_system_shapes[0] = circ(0, -8, 44, bgLightBlueColor); // big circle
+  bg_system_shapes[1] = rect(0, 0, 50, 4, bgVioletColor); // top bar
+  bg_system_shapes[2] = rect(0, 4, 50, 3, bgColor); // black spacing
+  bg_system_shapes[3] = rect(0, 7, 50, 7, bgLightBlueColor); // top part of light blue system bg
+  bg_system_shapes[4] = rect(22, 14, 44, 22, bgLightBlueColor); // bottom parth of light blue system bg with inner rounding bg
+  bg_system_shapes[5] = circ(50, -2, 32, bgColor); // inner circle
+  bg_system_shapes[6] = rect(66, 30, 87, 6, bgLightBlueColor); // long bar
+  bg_system_shapes[7] = rect(155, 30, 8, 6, bgOrangeColor); // short bar 1
+  bg_system_shapes[8] = rect(165, 30, 64, 6, bgLightVioletColor); // middle length bar
+  bg_system_shapes[9] = rect(231, 30, 9, 6, bgRedColor); // short bar 2
+    
+  bg_stardate_shapes[0] = circ(0, 38, 44, bgRedColor); // big circle
+  bg_stardate_shapes[1] = rect(22, 38, 44, 22, bgRedColor); // stardate bg top part
+  bg_stardate_shapes[2] = rect(0, 60, 50, 120, bgRedColor); // stardate bg bottom part + time
+  bg_stardate_shapes[3] = circ(50, 44, 32, bgColor); // inner circle
+  bg_stardate_shapes[4] = rect(66, 38, 87, 6, bgRedColor); // long bar
+  bg_stardate_shapes[5] = rect(155, 38, 8, 6, bgYellowColor); // short bar 1
+  bg_stardate_shapes[6] = rect(165, 38, 64, 6, bgLightVioletColor); // middle length bar
+  bg_stardate_shapes[7] = rect(231, 38, 9, 6, bgYellowColor); // short bar 2
+  bg_stardate_shapes[8] = rect(0, 74, 50, 3, bgColor); // cleanup big circle / spacer between stardate and time
+
+  bg_sensors = rect(0, 183, 50, 57, bgVioletColor);
+
+  bg_vitals_shapes[0] = circ(53, 184, 44, bgBlueColor); // big circle
+  bg_vitals_shapes[1] = rect(53, 216, 44, 3, bgColor); // cleanup big circle
+  bg_vitals_shapes[2] = rect(75, 184, 44, 22, bgBlueColor); // vitals bg top
+  bg_vitals_shapes[3] = rect(53, 206, 50, 10, bgBlueColor); // vitals bg bottom
+  bg_vitals_shapes[4] = circ(103, 190, 32, bgColor); // inner circle
+  bg_vitals_shapes[5] = rect(119, 184, 115, 6, bgBlueColor); // long bar
+
+  bg_movement = rect(53, 219, 50, 21, bgLightBlueColor);
+
+  // Background labels  
+  bg_label_system = label_make_with_font(bg_system_shapes[3], -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "System");
+  bg_label_stardate = label_make_with_font(bg_stardate_shapes[2], -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Stardate");
+  bg_label_time = label_make_with_font(bg_stardate_shapes[2], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Time");
+  bg_label_sensors = label_make_with_font(bg_sensors, -2, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Sensors");
+  bg_label_vitals_or_weather = label_make_with_font(bg_vitals_shapes[3], -2, -1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_BOTTOM_RIGHT, "Weather");
+  bg_label_movement = label_make_with_font(bg_movement, -1, 1, bgBlackColor, font_antonio_12, LV_ALIGN_IN_TOP_RIGHT, "Movement");
+
+  // System
+  system_container = label_container_make(lv_scr_act(), 0, 5, 170, 20, LV_ALIGN_IN_TOP_RIGHT);
+  labelBattery = label_make_with_font(system_container, 0, 0, grayColor, font_antonio_21, LV_ALIGN_IN_TOP_RIGHT, "0 %");
+  bleIcon = label_make(labelBattery, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::bluetooth);
+  notificationIcon  = label_make(system_container, 0, 0, orangeColor, LV_ALIGN_IN_TOP_LEFT, Symbols::message);
+  lv_obj_set_hidden(notificationIcon, true);
+
+  // Date
+  dateContainer = label_container_make(lv_scr_act(), 65, 50, 175, 20, LV_ALIGN_IN_TOP_LEFT);
+  labelDate = label_make_with_font(dateContainer, 0, 0, orangeColor, font_antonio_21, LV_ALIGN_IN_LEFT_MID, "12024 MON 01 MAR");
+  labelTimeAmPm = label_make_with_font(dateContainer, 0, 0, orangeColor, font_antonio_21, LV_ALIGN_IN_RIGHT_MID, "");
+
+  // Seconds Labels  
+  label_seconds_container = label_container_make(lv_scr_act(), 65, 150, 90, 15, LV_ALIGN_IN_TOP_LEFT);
+
+  label_tens_container = label_container_make(label_seconds_container, 0, 0, 90, 15, LV_ALIGN_IN_TOP_LEFT);
+  label_tens[0] = label_make_with_font(label_tens_container, 0, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "0");
+  label_tens[1] = label_make_with_font(label_tens_container, 10, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "1");
+  label_tens[2] = label_make_with_font(label_tens_container, 20, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "2");
+  label_tens[3] = label_make_with_font(label_tens_container, 30, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "3");
+  label_tens[4] = label_make_with_font(label_tens_container, 40, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "4");
+  label_tens[5] = label_make_with_font(label_tens_container, 50, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "5");
+
+  label_ones_container = label_container_make(label_seconds_container, 0, 15, 90, 15, LV_ALIGN_IN_TOP_LEFT);
+  label_ones[0] = label_make_with_font(label_ones_container, 0, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "0");
+  label_ones[1] = label_make_with_font(label_ones_container, 10, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "1");
+  label_ones[2] = label_make_with_font(label_ones_container, 20, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "2");
+  label_ones[3] = label_make_with_font(label_ones_container, 30, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "3");
+  label_ones[4] = label_make_with_font(label_ones_container, 40, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "4");
+  label_ones[5] = label_make_with_font(label_ones_container, 50, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "5");
+  label_ones[6] = label_make_with_font(label_ones_container, 60, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "6");
+  label_ones[7] = label_make_with_font(label_ones_container, 70, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "7");
+  label_ones[8] = label_make_with_font(label_ones_container, 80, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "8");
+  label_ones[9] = label_make_with_font(label_ones_container, 90, 0, grayColor, font_antonio_13, LV_ALIGN_IN_LEFT_MID, "9");
+
+  // Time
+  timeContainer = label_container_make(lv_scr_act(), 65, 76, 170, 60, LV_ALIGN_IN_TOP_LEFT);
+  labelTime = label_make_with_font(timeContainer, 0, 0, orangeColor, font_antonio_78, LV_ALIGN_IN_TOP_LEFT, "00:00");
+
+  // WK
+  label_week = label_make_with_font(lv_scr_act(), -5, 150, orangeColor, font_antonio_33, LV_ALIGN_IN_TOP_RIGHT, "WK00");
+
+  // Sensors
+  sensors_container = label_container_make(lv_scr_act(), 0, 0, 130, 50, LV_ALIGN_IN_BOTTOM_RIGHT);
+  stepValue = label_make_with_font(sensors_container, -5, 0, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
+  stepIcon = label_make(stepValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, Symbols::shoe);
+  heartbeatOrWeatherValue = label_make_with_font(sensors_container, -5, -25, orangeColor, font_antonio_21, LV_ALIGN_IN_BOTTOM_RIGHT, "0");
+  heartbeatIcon = label_make(heartbeatOrWeatherValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");
+  lv_obj_set_hidden(heartbeatIcon, true);
+  weatherIcon = label_make(heartbeatOrWeatherValue, -5, 0, orangeColor, LV_ALIGN_OUT_LEFT_MID, "");  
+  lv_obj_set_style_local_text_font(weatherIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &fontawesome_weathericons);
+
+  // Tasks
+  taskRefresh = lv_task_create(RefreshTaskCallback, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_MID, this);
+  Refresh();
+}
+
+WatchFaceLCARS::~WatchFaceLCARS() {
+  // Tasks
+  lv_task_del(taskRefresh);
+  
+  // Fonts
+  if (font_antonio_78 != nullptr) {
+    lv_font_free(font_antonio_78);
+  }
+  if (font_antonio_33 != nullptr) {
+    lv_font_free(font_antonio_33);
+  }
+  if (font_antonio_21 != nullptr) {
+    lv_font_free(font_antonio_21);
+  }
+  if (font_antonio_13 != nullptr) {
+    lv_font_free(font_antonio_13);
+  }
+  if (font_antonio_12 != nullptr) {
+    lv_font_free(font_antonio_12);
+  }
+  
+  // Objects
+  lv_obj_clean(lv_scr_act());
+}
+
+void WatchFaceLCARS::Refresh() {
+  currentNanoSeconds = std::chrono::time_point_cast<std::chrono::nanoseconds>(dateTimeController.CurrentDateTime());
+  if (currentNanoSeconds.IsUpdated()) {
+    UpdateSeconds();
+    UpdateStepCount();
+    UpdateBatteryPercent();
+    UpdateBLE();
+    UpdateNotification();
+    UpdateHeartRate();
+    UpdateWeather();
+    currentDateTime = std::chrono::time_point_cast<std::chrono::minutes>(currentNanoSeconds.Get());
+    if (currentDateTime.IsUpdated()) {
+      UpdateTime();
+      currentDate = std::chrono::time_point_cast<days>(currentDateTime.Get());
+      if (currentDate.IsUpdated()) {
+        UpdateStardate();
+        UpdateWK();
+      }
+    }
+  }
+}
+
+void WatchFaceLCARS::UpdateNotification() {
+  notificationCount = notificationManager.NbNotifications();
+  if(notificationCount.IsUpdated()) {
+    lv_obj_set_hidden(notificationIcon, notificationManager.IsEmpty());
+    if (!notificationManager.IsEmpty()) {
+      if(notificationManager.AreNewNotificationsAvailable()) {
+        lv_label_set_text_fmt(notificationIcon, "%s%s %d", Symbols::info, Symbols::message, notificationCount.Get());
+      } else {
+        lv_label_set_text_fmt(notificationIcon, "%s %d", Symbols::message, notificationCount.Get());
+      }
+    }
+  }
+}
+
+bool WatchFaceLCARS::ShowHeartRate() {  
+  return heartRateController.State() != Controllers::HeartRateController::States::Stopped;
+}
+
+void WatchFaceLCARS::UpdateHeartRate() {
+  if (!ShowHeartRate()) return;
+  heartbeat = heartRateController.HeartRate();
+  heartbeatRunning = heartRateController.State() != Controllers::HeartRateController::States::Stopped;
+  if (heartbeat.IsUpdated() || heartbeatRunning.IsUpdated()) {
+    if (heartbeat.Get() > 120) {
+      set_label_color(heartbeatOrWeatherValue, redColor);
+      set_label_color(heartbeatIcon, redColor);
+    } else {
+      set_label_color(heartbeatOrWeatherValue, orangeColor);
+      set_label_color(heartbeatIcon, orangeColor);
+    }
+    if (heartbeatRunning.Get()) {
+      lv_label_set_text_fmt(heartbeatOrWeatherValue, "%d", heartbeat.Get());
+      lv_label_set_text_static(heartbeatIcon, Symbols::heartBeat);
+      if(!showed_vitals_last) {
+        showed_vitals_last = true;
+        lv_label_set_text(bg_label_vitals_or_weather, "Vitals");
+        lv_obj_set_hidden(heartbeatIcon, false);
+        lv_obj_set_hidden(weatherIcon, true);
+        lv_obj_realign(bg_label_vitals_or_weather);
+      }
+    } else {
+      lv_label_set_text_static(heartbeatOrWeatherValue, "");
+      lv_label_set_text_static(heartbeatIcon, "");
+    }
+    lv_obj_realign(heartbeatOrWeatherValue);
+    lv_obj_realign(heartbeatIcon);
+  }
+}
+
+bool WatchFaceLCARS::ShowWeather() {
+  return !ShowHeartRate();
+}
+
+void WatchFaceLCARS::UpdateWeather() {
+  if (!ShowWeather()) return;
+
+  currentWeather = weatherService.Current();
+
+  if (currentWeather.IsUpdated() || showed_vitals_last) {
+    set_label_color(heartbeatOrWeatherValue, orangeColor);
+    set_label_color(weatherIcon, orangeColor);
+
+    auto optCurrentWeather = currentWeather.Get();
+
+    if (optCurrentWeather) {
+      int16_t temp = optCurrentWeather->temperature.Celsius();
+      if (settingsController.GetWeatherFormat() == Controllers::Settings::WeatherFormat::Imperial) {
+        temp = optCurrentWeather->temperature.Fahrenheit();
+      }
+      lv_label_set_text_fmt(heartbeatOrWeatherValue, "%d°", temp);
+      lv_label_set_text(weatherIcon, Symbols::GetSymbol(optCurrentWeather->iconId));
+
+      if (showed_vitals_last) {
+        showed_vitals_last = false;
+        lv_label_set_text(bg_label_vitals_or_weather, "Weather");
+        lv_obj_set_hidden(heartbeatIcon, true);
+        lv_obj_set_hidden(weatherIcon, false);
+        lv_obj_realign(bg_label_vitals_or_weather);
+      }
+    } else {
+      lv_label_set_text_static(heartbeatOrWeatherValue, "");
+      lv_label_set_text_static(weatherIcon, "");
+    }
+    lv_obj_realign(heartbeatOrWeatherValue);
+    lv_obj_realign(weatherIcon);
+  }
+}
+
+void WatchFaceLCARS::UpdateTime() {
+  uint8_t hour = dateTimeController.Hours();
+  uint8_t minute = dateTimeController.Minutes();
+
+  if (settingsController.GetClockType() == Controllers::Settings::ClockType::H12) {
+    char ampmChar[3] = "AM";
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour == 12) {
+      ampmChar[0] = 'P';
+    } else if (hour > 12) {
+      hour = hour - 12;
+      ampmChar[0] = 'P';
+    }
+    lv_label_set_text(labelTimeAmPm, ampmChar);
+    weekNumberFormat = "%U";
+  } else {
+    weekNumberFormat = "%V";
+  }
+  lv_label_set_text_fmt(labelTime, "%2d:%02d", hour, minute);
+
+  if (settingsController.GetClockType() == Controllers::Settings::ClockType::H12) {
+    lv_obj_realign(labelTimeAmPm);
+    lv_obj_realign(labelTime);
+  }
+}
+
+void WatchFaceLCARS::UpdateSeconds() {
+  uint8_t second = dateTimeController.Seconds();
+  if (last_second != second) {
+    last_second = second;
+    ResetSecondsDigits();
+    set_label_color(label_tens[second / 10], orangeColor);
+    set_label_color(label_ones[second % 10], orangeColor);
+  }
+}
+
+void WatchFaceLCARS::UpdateWK() {
+  time_t ttTime = std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::duration>(currentDate.Get()));
+  tm* tmTime = std::localtime(&ttTime);
+  char buffer[8];
+  strftime(buffer, 8, weekNumberFormat, tmTime);
+  uint8_t weekNumber = atoi(buffer);
+  lv_label_set_text_fmt(label_week, "WK%02d", weekNumber);
+  lv_obj_realign(label_week);
+}
+
+void WatchFaceLCARS::UpdateStardate() {
+  lv_label_set_text_fmt(
+    labelDate,
+    "1%d %s %d %s",
+    dateTimeController.Year(),
+    dateTimeController.DayOfWeekShortToString(),
+    dateTimeController.Day(),
+    dateTimeController.MonthShortToString()
+  );
+  lv_obj_realign(labelDate);
+}
+
+void WatchFaceLCARS::UpdateBatteryPercent() {
+  batteryPercentRemaining = batteryController.PercentRemaining();
+  isCharging = batteryController.IsCharging();
+  if (batteryController.IsCharging() ) { // Charging battery animation
+    chargingBatteryPercent += 1;
+    if (chargingBatteryPercent > 100) {
+      chargingBatteryPercent = batteryPercentRemaining.Get();
+    }
+    if (chargingBatteryPercent <= 100 && ((chargingBatteryPercent % 47) == 0)) {
+      SetBatteryLevel(batteryPercentRemaining.Get(), orangeColor);
+    }
+    if ((chargingBatteryPercent % 97) == 0) {
+      SetBatteryLevel(batteryPercentRemaining.Get(), grayColor);
+    }
+  } else if (isCharging.IsUpdated() || batteryPercentRemaining.IsUpdated()) {
+    chargingBatteryPercent = batteryPercentRemaining.Get();
+    if (chargingBatteryPercent <= 20) {
+      SetBatteryLevel(chargingBatteryPercent, redColor);
+    } else if (chargingBatteryPercent > 99) {
+      SetBatteryLevel(chargingBatteryPercent, orangeColor);
+    } else {
+      SetBatteryLevel(chargingBatteryPercent, grayColor);
+    }
+  }
+}
+
+void WatchFaceLCARS::UpdateBLE() {
+  bleState = bleController.IsConnected();
+  bleRadioEnabled = bleController.IsRadioEnabled();
+  if (bleState.IsUpdated()) {
+    lv_label_set_text_static(bleIcon, BleIcon::GetIcon(bleState.Get()));
+    lv_obj_realign(bleIcon);
+  }
+}
+
+void WatchFaceLCARS::UpdateStepCount() {
+  stepCount = motionController.NbSteps();
+  if (stepCount.IsUpdated()) {
+    lv_label_set_text_fmt(stepValue, "%lu", stepCount.Get());
+    lv_obj_realign(stepValue);
+    lv_obj_realign(stepIcon);
+  }
+}
+
+void WatchFaceLCARS::ResetSecondsDigits() {
+  for (int i = 0; i < 6; ++i) {
+    set_label_color(label_tens[i], grayColor);
+  }
+  for (int i = 0; i < 10; ++i) {
+    set_label_color(label_ones[i], grayColor);
+  }
+}
+
+void WatchFaceLCARS::SetBatteryLevel(uint8_t batteryPercent, const lv_color_t& color) {
+  lv_label_set_text_fmt(labelBattery, "%lu%%", batteryPercent);
+  set_label_color(labelBattery, color);
+  lv_obj_realign(labelBattery);
+  lv_obj_realign(bleIcon);
+}
+
+bool WatchFaceLCARS::IsAvailable(Pinetime::Controllers::FS& filesystem) {
+  lfs_file file = {};
+
+  if (filesystem.FileOpen(&file, "/fonts/antonio_78.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  if (filesystem.FileOpen(&file, "/fonts/antonio_33.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  if (filesystem.FileOpen(&file, "/fonts/antonio_21.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  if (filesystem.FileOpen(&file, "/fonts/antonio_13.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  if (filesystem.FileOpen(&file, "/fonts/antonio_12.bin", LFS_O_RDONLY) < 0) {
+    return false;
+  }
+  filesystem.FileClose(&file);
+  return true;
+}
