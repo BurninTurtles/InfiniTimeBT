@@ -8,6 +8,7 @@
 #include "displayapp/screens/Screen.h"
 #include "components/datetime/DateTimeController.h"
 #include "components/ble/SimpleWeatherService.h"
+#include "components/ble/SimpleWeatherService.h"
 #include "utility/DirtyValue.h"
 
 namespace Pinetime {
@@ -56,6 +57,7 @@ namespace Pinetime {
         lv_obj_t* label_time;
         lv_obj_t* label_date;
         lv_obj_t* batteryValue;
+        lv_obj_t* stepValue;
         lv_obj_t* stepValue;
         lv_obj_t* heartbeatValue;
         lv_obj_t* connectState;

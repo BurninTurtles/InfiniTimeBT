@@ -61,7 +61,7 @@ namespace Pinetime::Applications {
     static constexpr const char* icon = Screens::Symbols::hourGlass;
 
     static Screens::Screen* Create(AppControllers& controllers) {
-      return new Screens::Timer(controllers.timer, controllers.motorController, *controllers.systemTask);
+      return new Screens::Timer(controllers.timer, controllers.motorController, *controllers.systemTask, controllers.motorController, *controllers.systemTask);
     };
   };
 }

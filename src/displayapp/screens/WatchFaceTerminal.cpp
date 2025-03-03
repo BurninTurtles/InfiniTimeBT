@@ -12,6 +12,8 @@
 #include "displayapp/screens/WeatherSymbols.h"
 #include "displayapp/InfiniTimeTheme.h"
 #include "displayapp/InfiniTimeTheme.h"
+#include "components/ble/SimpleWeatherService.h"
+#include "displayapp/screens/WeatherSymbols.h"
 #include "displayapp/InfiniTimeTheme.h"
 
 using namespace Pinetime::Applications::Screens;
@@ -24,6 +26,8 @@ WatchFaceTerminal::WatchFaceTerminal(Controllers::DateTime& dateTimeController,
                                      Controllers::HeartRateController& heartRateController,
                                      Controllers::MotionController& motionController,
                                      Controllers::SimpleWeatherService& weatherService)
+                                     Controllers::MotionController& motionController,
+                                     Controllers::SimpleWeatherService& weatherService)
   : currentDateTime {{}},
     dateTimeController {dateTimeController},
     batteryController {batteryController},
@@ -31,6 +35,15 @@ WatchFaceTerminal::WatchFaceTerminal(Controllers::DateTime& dateTimeController,
     notificationManager {notificationManager},
     settingsController {settingsController},
     heartRateController {heartRateController},
+    motionController {motionController},
+    weatherService {weatherService} {
+  batteryValue = lv_label_create(lv_scr_act(), nullptr);
+  lv_label_set_recolor(batteryValue, true);
+  lv_obj_align(batteryValue, lv_scr_act(), LV_ALIGN_IN_LEFT_MID, 0, -20);
+
+  connectState = lv_label_create(lv_scr_act(), nullptr);
+  lv_label_set_recolor(connectState, true);
+  lv_obj_align(connectState, lv_scr_act(), LV_ALIGN_IN_LEFT_MID, 0, 60);
     motionController {motionController} {
 
   container = lv_cont_create(lv_scr_act(), nullptr);
