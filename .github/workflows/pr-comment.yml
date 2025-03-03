@@ -5,7 +5,7 @@ name: PR comment
 
 on:
   pull_request_target:
-    branches: [ main ]
+    branches: [ main, 1.15.08-bt ]
     paths-ignore:
       - 'doc/**'
       - '**.md'
