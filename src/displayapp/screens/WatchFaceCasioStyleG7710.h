@@ -9,7 +9,6 @@
 #include "displayapp/screens/Screen.h"
 #include "components/datetime/DateTimeController.h"
 #include "components/ble/BleController.h"
-#include "components/ble/SimpleWeatherService.h"
 #include "utility/DirtyValue.h"
 #include "displayapp/apps/Apps.h"
 
@@ -35,19 +34,10 @@ namespace Pinetime {
                                  Controllers::Settings& settingsController,
                                  Controllers::HeartRateController& heartRateController,
                                  Controllers::MotionController& motionController,
-                                 Controllers::FS& filesystem,
-                                 Controllers::SimpleWeatherService& weather);
+                                 Controllers::FS& filesystem);
         ~WatchFaceCasioStyleG7710() override;
 
-        bool OnTouchEvent(TouchEvents event) override;
-        bool OnButtonPushed() override;
-
-        void UpdateSelected(lv_obj_t* object, lv_event_t event);
-
         void Refresh() override;
-
-        void UpdateWeatherPosition();
-        void DrawWeather();
 
         static bool IsAvailable(Pinetime::Controllers::FS& filesystem);
 
@@ -62,9 +52,6 @@ namespace Pinetime {
         Utility::DirtyValue<bool> heartbeatRunning {};
         Utility::DirtyValue<bool> notificationState {};
         Utility::DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::days>> currentDate;
-        Utility::DirtyValue<std::optional<Pinetime::Controllers::SimpleWeatherService::CurrentWeather>> currentWeather {};
-
-        uint32_t savedTick = 0;
 
         lv_point_t line_icons_points[3] {{0, 5}, {117, 5}, {122, 0}};
         lv_point_t line_day_of_week_number_points[4] {{0, 0}, {100, 0}, {95, 95}, {0, 95}};
@@ -97,12 +84,6 @@ namespace Pinetime {
         lv_obj_t* stepValue;
         lv_obj_t* notificationIcon;
         lv_obj_t* line_icons;
-        lv_obj_t* btnWeather;
-        lv_obj_t* btnSegment;
-        lv_obj_t* btnClose;
-        lv_obj_t* weatherIcon;
-        lv_obj_t* label_temperature;
-        lv_obj_t* label_temperature_segment;
 
         BatteryIcon batteryIcon;
 
@@ -113,17 +94,11 @@ namespace Pinetime {
         Controllers::Settings& settingsController;
         Controllers::HeartRateController& heartRateController;
         Controllers::MotionController& motionController;
-        Controllers::SimpleWeatherService& weatherService;
 
         lv_task_t* taskRefresh;
         lv_font_t* font_dot40 = nullptr;
         lv_font_t* font_segment40 = nullptr;
         lv_font_t* font_segment115 = nullptr;
-        lv_font_t* font_teko_light = nullptr;
-
-        void CloseMenu();
-        void HandleWeatherButton();
-        void HandleSegmentButton();
       };
     }
 
@@ -140,8 +115,7 @@ namespace Pinetime {
                                                      controllers.settingsController,
                                                      controllers.heartRateController,
                                                      controllers.motionController,
-                                                     controllers.filesystem,
-                                                     *controllers.weatherController);
+                                                     controllers.filesystem);
       };
 
       static bool IsAvailable(Pinetime::Controllers::FS& filesystem) {
