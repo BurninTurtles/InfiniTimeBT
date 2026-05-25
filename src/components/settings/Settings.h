@@ -39,7 +39,8 @@ namespace Pinetime {
         Pink
       };
       enum class PTSGaugeStyle : uint8_t { Full, Half, Numeric };
-      enum class PrideFlag : uint8_t { Gay, Trans, Bi, Lesbian };
+      enum class PTSWeather : uint8_t { On, Off } ;
+      enum class PrideFlag : uint8_t { Gay, Trans, Bi, Lesbian, Nonbinary, Ace, Aro, AroAce, Pan };
       enum class DfuAndFsMode : uint8_t { Disabled, Enabled, EnabledTillReboot };
 
       struct PineTimeStyle {
