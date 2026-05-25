@@ -403,7 +403,11 @@ void SystemTask::Work() {
         }
       }
       monitor.Process();
-      NoInit_BackUpTime = dateTimeController.CurrentDateTime();
+
+      NoInit_Persistence.steps = motionController.NbSteps();
+      NoInit_Persistence.tripSteps = motionController.GetTripSteps();
+      NoInit_Persistence.timeMillis =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dateTimeController.CurrentDateTime().time_since_epoch()).count();
       if (nrf_gpio_pin_read(PinMap::Button) == 0) {
         watchdog.Reload();
       }
