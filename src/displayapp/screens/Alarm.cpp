@@ -279,22 +279,6 @@ void Alarm::UpdateStopProgress(lv_coord_t stopPosition) {
   lv_bar_set_value(progressStop, progressBarSize - stopPosition, LV_ANIM_OFF);
 }
 
-void Alarm::StopButtonPressed() {
-  stopBtnPressTime = xTaskGetTickCount();
-  UpdateStopProgress(0);
-  lv_obj_set_hidden(progressStop, false);
-}
-
-void Alarm::ResetStopProgress() {
-  stopBtnPressTime = std::nullopt;
-  lv_obj_set_hidden(progressStop, true);
-  UpdateStopProgress(0);
-}
-
-void Alarm::UpdateStopProgress(lv_coord_t stopPosition) {
-  lv_bar_set_value(progressStop, progressBarSize - stopPosition, LV_ANIM_OFF);
-}
-
 void Alarm::OnButtonEvent(lv_obj_t* obj, lv_event_t event) {
   if (obj == btnStop) {
     if (event == LV_EVENT_PRESSED) {
