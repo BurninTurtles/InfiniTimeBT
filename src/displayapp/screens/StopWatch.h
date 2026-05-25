@@ -4,8 +4,6 @@
 #include <lvgl/lvgl.h>
 
 #include "components/stopwatch/StopWatchController.h"
-#include "systemtask/SystemTask.h"
-#include "systemtask/WakeLock.h"
 #include "Symbols.h"
 #include "utility/DirtyValue.h"
 
@@ -20,11 +18,11 @@ namespace Pinetime::Applications {
       uint32_t epochSecs;
     };
 
-    class StopWatch : public Screen {
-    public:
-      explicit StopWatch(System::SystemTask& systemTask, Controllers::StopWatchController& stopWatchController);
-      ~StopWatch() override;
-      void Refresh() override;
+      class StopWatch : public Screen {
+      public:
+        explicit StopWatch();
+        ~StopWatch() override;
+        void Refresh() override;
 
       void PlayPauseBtnEventHandler();
       void StopLapBtnEventHandler();
@@ -43,14 +41,17 @@ namespace Pinetime::Applications {
 
       void SetHoursVisible(bool visible);
 
-      Pinetime::System::WakeLock wakeLock;
-      Controllers::StopWatchController& stopWatchController;
-      TickType_t lastBlinkTime = 0;
-      uint8_t displayedLaps = 3;
-      lv_obj_t *time, *msecTime, *btnPlayPause, *btnStopLap, *txtPlayPause, *txtStopLap;
-      lv_obj_t* lapText;
-      Utility::DirtyValue<uint32_t> renderedSeconds;
-      bool hoursVisible = false;
+        States currentState = States::Init;
+        TickType_t startTime;
+        TickType_t oldTimeElapsed = 0;
+        TickType_t blinkTime = 0;
+        static constexpr int maxLapCount = 20;
+        TickType_t laps[maxLapCount + 1];
+        static constexpr int displayedLaps = 2;
+        int lapsDone = 0;
+        lv_obj_t *time, *msecTime, *btnPlayPause, *btnStopLap, *txtPlayPause, *txtStopLap;
+        lv_obj_t* lapText;
+        bool isHoursLabelUpdated = false;
 
       lv_task_t* taskRefresh;
     };
@@ -61,9 +62,9 @@ namespace Pinetime::Applications {
     static constexpr Apps app = Apps::StopWatch;
     static constexpr const char* icon = Screens::Symbols::stopWatch;
 
-    static Screens::Screen* Create(AppControllers& controllers) {
-      return new Screens::StopWatch(*controllers.systemTask, controllers.stopWatchController);
-    }
+      static Screens::Screen* Create(AppControllers& controllers) {
+        return new Screens::StopWatch();
+      };
 
     static bool IsAvailable(Pinetime::Controllers::FS& /*filesystem*/) {
       return true;

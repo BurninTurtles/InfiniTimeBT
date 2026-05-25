@@ -1,7 +1,9 @@
 #include "displayapp/screens/StopWatch.h"
-
 #include "displayapp/screens/Symbols.h"
 #include "displayapp/InfiniTimeTheme.h"
+#include <timers.h>
+#include <task.h>
+#include <algorithm>
 
 using namespace Pinetime::Applications::Screens;
 using namespace Pinetime::Controllers;
@@ -35,8 +37,7 @@ namespace {
   constexpr TickType_t blinkInterval = pdMS_TO_TICKS(1000);
 }
 
-StopWatch::StopWatch(System::SystemTask& systemTask, StopWatchController& stopWatchController)
-  : wakeLock(systemTask), stopWatchController {stopWatchController} {
+StopWatch::StopWatch() {
   static constexpr uint8_t btnWidth = 115;
   static constexpr uint8_t btnHeight = 80;
   btnPlayPause = lv_btn_create(lv_scr_act(), nullptr);
@@ -143,13 +144,35 @@ void StopWatch::DisplayCleared() {
   lv_obj_set_state(txtStopLap, LV_STATE_DISABLED);
 }
 
-void StopWatch::RenderTime() {
-  TimeSeparated elapsedTime = ConvertTicksToTimeSegments(stopWatchController.GetElapsedTime());
-  renderedSeconds = elapsedTime.epochSecs;
-  if (renderedSeconds.IsUpdated()) {
-    SetHoursVisible(elapsedTime.hours != 0);
-    if (!hoursVisible) {
-      lv_label_set_text_fmt(time, "%02d:%02d", elapsedTime.mins, elapsedTime.secs);
+void StopWatch::Reset() {
+  SetInterfaceStopped();
+  currentState = States::Init;
+  oldTimeElapsed = 0;
+  lapsDone = 0;
+}
+
+void StopWatch::Start() {
+  SetInterfaceRunning();
+  startTime = xTaskGetTickCount();
+  currentState = States::Running;
+}
+
+void StopWatch::Pause() {
+  SetInterfacePaused();
+  startTime = 0;
+  // Store the current time elapsed in cache
+  oldTimeElapsed = laps[lapsDone];
+  blinkTime = xTaskGetTickCount() + blinkInterval;
+  currentState = States::Halted;
+}
+
+void StopWatch::Refresh() {
+  if (currentState == States::Running) {
+    laps[lapsDone] = oldTimeElapsed + xTaskGetTickCount() - startTime;
+
+    TimeSeparated_t currentTimeSeparated = convertTicksToTimeSegments(laps[lapsDone]);
+    if (currentTimeSeparated.hours == 0) {
+      lv_label_set_text_fmt(time, "%02d:%02d", currentTimeSeparated.mins, currentTimeSeparated.secs);
     } else {
       lv_label_set_text_fmt(time, "%02d:%02d:%02d", elapsedTime.hours, elapsedTime.mins, elapsedTime.secs);
     }
